@@ -4,11 +4,19 @@ import { WorkflowMap } from './components/WorkflowMap'
 import './App.css'
 
 const AGENT_COLORS = {
-  1: '#06B6D4',
-  2: '#8B5CF6',
-  3: '#F59E0B',
-  4: '#F43F5E',
-  5: '#10B981',
+  Analyst: '#06B6D4',
+  Critic: '#8B5CF6',
+  Specialist: '#F59E0B',
+  Synthesizer: '#10B981',
+  Explorer: '#F43F5E',
+}
+
+const ROLES = {
+  Analyst: 'Breaks down problems into components and identifies key patterns.',
+  Critic: 'Questions assumptions, finds flaws, and challenges conclusions.',
+  Specialist: 'Applies deep domain knowledge to solve specific aspects.',
+  Synthesizer: 'Combines insights from all agents into a coherent answer.',
+  Explorer: 'Finds novel connections and alternative perspectives.',
 }
 
 function App() {
@@ -24,6 +32,7 @@ function App() {
   const [installPopup, setInstallPopup] = useState(null)
   const [apiKeyAgent, setApiKeyAgent] = useState(null)
   const [apiKeys, setApiKeys] = useState({})
+  const [showRolesHelp, setShowRolesHelp] = useState(false)
   
   const { connected, entries, connect, send } = useWebSocket(sessionId)
 
@@ -36,7 +45,7 @@ function App() {
       const res = await fetch('http://localhost:8000/api/models')
       const data = await res.json()
       setModels(data)
-      if (data.installed.length > 0) {
+      if (data.installed.length > 0 && agents[0].model === '') {
         setAgents(prev => prev.map((agent, idx) => ({
           ...agent,
           model: data.installed[idx % data.installed.length] || ''
@@ -57,6 +66,12 @@ function App() {
     ))
   }
 
+  const handleRoleChange = (agentId, role) => {
+    setAgents(prev => prev.map(a => 
+      a.id === agentId ? { ...a, role } : a
+    ))
+  }
+
   const handleApiKeySubmit = (agentId, apiKey) => {
     if (apiKey) {
       setApiKeys(prev => ({ ...prev, [agentId]: apiKey }))
@@ -66,12 +81,21 @@ function App() {
 
   const addAgent = () => {
     if (agents.length < 5) {
-      const newId = Math.max(...agents.map(a => a.id)) + 1
+      const newId = Date.now()
+      const usedRoles = agents.map(a => a.role)
+      const availableRoles = Object.keys(ROLES).filter(r => !usedRoles.includes(r))
+      const newRole = availableRoles[0] || 'Analyst'
       setAgents(prev => [...prev, { 
         id: newId, 
         model: models.installed[0] || '', 
-        role: 'Analyst' 
+        role: newRole 
       }])
+    }
+  }
+
+  const removeAgent = (agentId) => {
+    if (agents.length > 1) {
+      setAgents(prev => prev.filter(a => a.id !== agentId))
     }
   }
 
@@ -85,10 +109,7 @@ function App() {
         apiKey: apiKeys[a.id] || null
       }))
     
-    if (validAgents.length === 0) {
-      return
-    }
-    
+    if (validAgents.length === 0) return
     setIsRunning(true)
     
     try {
@@ -122,26 +143,65 @@ function App() {
     <div className="app">
       <section className="hero">
         <h1>Agora</h1>
-        <p>Where minds meet. Describe a problem and watch multiple AI agents reason together.</p>
+        <p className="tagline">Where minds meet</p>
         
-        <div className="agent-row">
+        <div className="agents-container">
           {agents.map(agent => (
-            <div key={agent.id} className="agent-pill">
-              <span>{agent.role}</span>
+            <div key={agent.id} className="agent-card" style={{ borderColor: AGENT_COLORS[agent.role] }}>
+              <div className="agent-header">
+                <button 
+                  className="role-select"
+                  onClick={() => setShowRolesHelp(!showRolesHelp)}
+                  title="Click to learn about roles"
+                >
+                  {agent.role}
+                  <span className="role-arrow">▾</span>
+                </button>
+                {agents.length > 1 && (
+                  <button 
+                    className="remove-agent"
+                    onClick={() => removeAgent(agent.id)}
+                    title="Remove agent"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+              
+              {showRolesHelp && (
+                <div className="roles-help">
+                  {Object.entries(ROLES).map(([role, desc]) => (
+                    <div 
+                      key={role} 
+                      className="role-help-item"
+                      onClick={() => {
+                        handleRoleChange(agent.id, role)
+                        setShowRolesHelp(false)
+                      }}
+                    >
+                      <strong>{role}</strong>
+                      <span>{desc}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
               <select 
                 value={agent.model} 
                 onChange={(e) => handleModelChange(agent.id, e.target.value)}
+                className="model-select"
               >
-                <option value="">Select</option>
+                <option value="">Select model</option>
                 {models.installed.map(m => (
                   <option key={m} value={m}>{m}</option>
                 ))}
                 {models.available.map(m => (
-                  <option key={m} value={m}>{m}</option>
+                  <option key={m} value={m}>{m} (not installed)</option>
                 ))}
                 <option disabled>—</option>
-                <option value="__API_KEY__">API Key</option>
+                <option value="__API_KEY__">Use API Key →</option>
               </select>
+              
               {apiKeyAgent === agent.id && (
                 <input
                   type="password"
@@ -153,15 +213,20 @@ function App() {
               )}
             </div>
           ))}
+          
           {agents.length < 5 && (
-            <button className="add-agent" onClick={addAgent}>+</button>
+            <button className="add-agent-btn" onClick={addAgent}>
+              <span>+</span>
+              <span className="add-label">Add Agent</span>
+            </button>
           )}
         </div>
         
-        <div className="input-area">
+        <div className="input-container">
           <input 
             type="text" 
-            placeholder="Describe a problem, decision, or question..."
+            className="problem-input"
+            placeholder="Describe your problem..."
             value={problem}
             onChange={(e) => setProblem(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
@@ -178,11 +243,17 @@ function App() {
       </section>
 
       <section className="board">
-        {entries.map(entry => (
+        {entries.length === 0 && !isRunning && (
+          <div className="empty-state">
+            <p>Ask a question to start the conversation</p>
+          </div>
+        )}
+        
+        {entries.map((entry, idx) => (
           <div 
             key={entry.id} 
             className="entry"
-            style={{ borderLeft: `3px solid ${AGENT_COLORS[entry.agentId] || AGENT_COLORS[1]}` }}
+            style={{ borderLeftColor: AGENT_COLORS[entry.agent?.split(' ')[1]] || AGENT_COLORS.Analyst }}
           >
             <div className="entry-header">
               <span className="entry-agent">{entry.agent}</span>
@@ -204,8 +275,8 @@ function App() {
         ))}
       </section>
 
-      <button className="workflow-toggle" onClick={() => setShowWorkflow(true)}>
-        Workflow
+      <button className="workflow-btn" onClick={() => setShowWorkflow(true)}>
+        View Workflow
       </button>
 
       <WorkflowMap 
@@ -218,20 +289,25 @@ function App() {
         <div className="modal-overlay" onClick={() => setInstallPopup(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h2>Install {installPopup}</h2>
-            <p>Run this command:</p>
-            <code>ollama pull {installPopup}</code>
-            <button className="copy-btn" onClick={() => navigator.clipboard.writeText(`ollama pull ${installPopup}`)}>
-              Copy
-            </button>
-            <p className="hint">Refresh after installing.</p>
-            <button className="close-btn" onClick={() => setInstallPopup(null)}>Close</button>
+            <p className="modal-text">Run this command in your terminal:</p>
+            <div className="modal-command">
+              <code>ollama pull {installPopup}</code>
+              <button 
+                className="copy-btn"
+                onClick={() => navigator.clipboard.writeText(`ollama pull ${installPopup}`)}
+              >
+                Copy
+              </button>
+            </div>
+            <p className="modal-hint">Refresh the page after installing.</p>
+            <button className="modal-close" onClick={() => setInstallPopup(null)}>Close</button>
           </div>
         </div>
       )}
 
-      <div className="footer">
-        Built with Ollama · localhost
-      </div>
+      <footer className="footer">
+        Built with Ollama
+      </footer>
     </div>
   )
 }
