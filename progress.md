@@ -1,7 +1,7 @@
 # Progress Log
 
 ## Current Version: v0.1.0
-## Status: In Progress
+## Status: Ready for Testing
 
 ---
 
