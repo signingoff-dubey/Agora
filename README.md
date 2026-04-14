@@ -48,8 +48,13 @@ Every agent shows its thinking process live — tokens stream in as the model ge
 ### ⚡ Conflict Detection
 When two agents post contradictory claims, Agora flags the conflict explicitly on the board and in the mindmap. Conflicts are not auto-resolved — they are surfaced for the user and for the Synthesizer agent to address.
 
-### 🎨 Design System Driven UI
-All visual decisions — colors, typography, spacing, component specs, animations — are defined in `design_formats.md` at the project root. Every component references this file. No inconsistency across the UI.
+### 🎨 Apple-Inspired Minimal UI
+The UI follows Apple's design principles:
+- Pure black (#000000) background with Apple Blue (#0071e3) accent
+- SF Pro-style typography with tight letter-spacing
+- Pill-style controls instead of boxes
+- No unnecessary borders or chrome
+- Product-as-hero layout
 
 ---
 
@@ -104,12 +109,15 @@ Each agent is a role-prompted Ollama call running in its own thread. The shared 
 agora/
 ├── design_formats.md          # UI design system — single source of truth
 ├── README.md
+├── run.bat                  # One-click launcher
+├── apple_design.md           # Apple design reference
 │
 ├── backend/
 │   ├── main.py                # FastAPI app, WebSocket endpoint
 │   ├── board.py               # Shared board state (thread-safe, append-only)
 │   ├── session.py             # Session lifecycle management
 │   ├── ollama_manager.py      # Model discovery + curated available list
+│   ├── requirements.txt        # Python dependencies
 │   ├── agents/
 │   │   ├── base_agent.py      # Base class: prompt builder, LLM caller, board writer
 │   │   ├── analyst.py
@@ -124,9 +132,19 @@ agora/
 │       └── session.py         # Session schema
 │
 └── frontend/
+    ├── package.json
+    ├── vite.config.js
     └── src/
-        ├── App.jsx
+        ├── App.jsx              # Main component
+        ├── App.css              # Apple-inspired styles
+        ├── index.css
+        ├── main.jsx
         ├── components/
+        │   ├── InstallPopup.jsx
+        │   ├── OllamaError.jsx
+        │   └── WorkflowMap.jsx
+        └── hooks/
+            └── useWebSocket.js
         │   ├── AgentPanel.jsx       # Agent cards + model dropdowns (top right)
         │   ├── LiveBoard.jsx        # Real-time board feed
         │   ├── AgentCard.jsx        # Per-agent post with thinking indicator
@@ -152,6 +170,16 @@ agora/
 - Python 3.11+
 - Node.js 18+
 
+### Quick Start (Recommended)
+
+Simply double-click `run.bat` in the project folder. It will:
+1. Start Ollama
+2. Start the backend (port 8000)
+3. Start the frontend (port 5173)
+4. Open http://localhost:5173 in your browser
+
+### Manual Start
+
 ### 1. Start Ollama
 
 ```bash
@@ -167,7 +195,7 @@ git clone https://github.com/signingoff-dubey/agora
 cd agora/backend
 
 pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+python main.py
 ```
 
 ### 3. Start Frontend
