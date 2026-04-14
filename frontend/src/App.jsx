@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useWebSocket } from './hooks/useWebSocket'
-import { InstallPopup } from './components/InstallPopup'
 import { WorkflowMap } from './components/WorkflowMap'
 import './App.css'
 
@@ -17,7 +16,6 @@ function App() {
   const [agents, setAgents] = useState([
     { id: 1, model: '', role: 'Analyst' },
     { id: 2, model: '', role: 'Critic' },
-    { id: 3, model: '', role: 'Specialist' },
   ])
   const [problem, setProblem] = useState('')
   const [sessionId, setSessionId] = useState('')
@@ -27,7 +25,7 @@ function App() {
   const [apiKeyAgent, setApiKeyAgent] = useState(null)
   const [apiKeys, setApiKeys] = useState({})
   
-  const { connected, entries, connect, send, disconnect } = useWebSocket(sessionId)
+  const { connected, entries, connect, send } = useWebSocket(sessionId)
 
   useEffect(() => {
     fetchModels()
@@ -60,7 +58,9 @@ function App() {
   }
 
   const handleApiKeySubmit = (agentId, apiKey) => {
-    setApiKeys(prev => ({ ...prev, [agentId]: apiKey }))
+    if (apiKey) {
+      setApiKeys(prev => ({ ...prev, [agentId]: apiKey }))
+    }
     setApiKeyAgent(null)
   }
 
@@ -86,7 +86,6 @@ function App() {
       }))
     
     if (validAgents.length === 0) {
-      alert('Please select at least one model for an agent')
       return
     }
     
@@ -116,39 +115,38 @@ function App() {
   const formatTime = (timestamp) => {
     if (!timestamp) return ''
     const date = new Date(timestamp)
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
   return (
     <div className="app">
-      <header className="header">
-        <h1 className="logo">Agora</h1>
-        <div className="agent-cards">
-          {agents.map((agent, idx) => (
-            <div key={agent.id} className="agent-card" style={{ borderTopColor: AGENT_COLORS[agent.id] || AGENT_COLORS[1] }}>
-              <span className="agent-role">{agent.role}</span>
+      <section className="hero">
+        <h1>Agora</h1>
+        <p>Where minds meet. Describe a problem and watch multiple AI agents reason together.</p>
+        
+        <div className="agent-row">
+          {agents.map(agent => (
+            <div key={agent.id} className="agent-pill">
+              <span>{agent.role}</span>
               <select 
                 value={agent.model} 
                 onChange={(e) => handleModelChange(agent.id, e.target.value)}
-                className="model-select"
               >
-                <option value="">Select model</option>
+                <option value="">Select</option>
                 {models.installed.map(m => (
                   <option key={m} value={m}>{m}</option>
                 ))}
                 {models.available.map(m => (
-                  <option key={m} value={m}>{m} (not installed)</option>
+                  <option key={m} value={m}>{m}</option>
                 ))}
-                <option disabled>──</option>
-                <option value="__API_KEY__" onClick={() => setApiKeyAgent(agent.id)}>
-                  🔑 Enter API Key
-                </option>
+                <option disabled>—</option>
+                <option value="__API_KEY__">API Key</option>
               </select>
               {apiKeyAgent === agent.id && (
                 <input
                   type="password"
                   placeholder="sk-..."
-                  className="api-key-input"
+                  className="api-input"
                   onBlur={(e) => handleApiKeySubmit(agent.id, e.target.value)}
                   autoFocus
                 />
@@ -156,79 +154,84 @@ function App() {
             </div>
           ))}
           {agents.length < 5 && (
-            <button className="add-agent-btn" onClick={addAgent}>+</button>
+            <button className="add-agent" onClick={addAgent}>+</button>
           )}
         </div>
-      </header>
-
-      <main className="main">
-        <div className="live-board">
-          {entries.length === 0 && !isRunning && (
-            <div className="empty-state">
-              <p>Describe a problem, decision, or question...</p>
-            </div>
-          )}
-          {entries.map((entry, idx) => (
-            <div 
-              key={entry.id} 
-              className="entry-card" 
-              style={{ borderLeftColor: AGENT_COLORS[entry.agentId] || AGENT_COLORS[1] }}
-            >
-              <div className="entry-header">
-                <span className="entry-agent">{entry.agent} · {entry.model}</span>
-                <span className="entry-time">{formatTime(entry.timestamp)}</span>
-              </div>
-              <div className="entry-content">
-                {entry.content || (
-                  <span className="thinking-indicator">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </span>
-                )}
-              </div>
-              {entry.sentTo?.length > 0 && (
-                <div className="entry-arrow">→ Sending to {entry.sentTo.join(', ')}</div>
-              )}
-              {entry.reactingTo && (
-                <div className="entry-arrow">← Receiving from {entry.reactingTo}</div>
-              )}
-            </div>
-          ))}
+        
+        <div className="input-area">
+          <input 
+            type="text" 
+            placeholder="Describe a problem, decision, or question..."
+            value={problem}
+            onChange={(e) => setProblem(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+            disabled={isRunning}
+          />
+          <button 
+            className="run-btn" 
+            onClick={handleSubmit}
+            disabled={isRunning || !problem.trim()}
+          >
+            {isRunning ? '●' : '▶'}
+          </button>
         </div>
-      </main>
+      </section>
 
-      <footer className="footer">
-        <button className="workflow-btn" onClick={() => setShowWorkflow(!showWorkflow)}>
-          Workflow
-        </button>
-        <input 
-          type="text" 
-          className="problem-input"
-          placeholder="Describe a problem, decision, or question..."
-          value={problem}
-          onChange={(e) => setProblem(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-          disabled={isRunning}
-        />
-        <button 
-          className="run-btn" 
-          onClick={handleSubmit}
-          disabled={isRunning || !problem.trim()}
-        >
-          {isRunning ? '⏳' : '▶'}
-        </button>
-      </footer>
+      <section className="board">
+        {entries.map(entry => (
+          <div 
+            key={entry.id} 
+            className="entry"
+            style={{ borderLeft: `3px solid ${AGENT_COLORS[entry.agentId] || AGENT_COLORS[1]}` }}
+          >
+            <div className="entry-header">
+              <span className="entry-agent">{entry.agent}</span>
+              <span className="entry-time">{formatTime(entry.timestamp)}</span>
+            </div>
+            <div className="entry-content">
+              {entry.content || (
+                <div className="thinking">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              )}
+            </div>
+            {entry.sentTo?.length > 0 && (
+              <div className="entry-arrow">→ {entry.sentTo.join(', ')}</div>
+            )}
+          </div>
+        ))}
+      </section>
 
-      {installPopup && (
-        <InstallPopup model={installPopup} onClose={() => setInstallPopup(null)} />
-      )}
-      
+      <button className="workflow-toggle" onClick={() => setShowWorkflow(true)}>
+        Workflow
+      </button>
+
       <WorkflowMap 
         entries={entries} 
         isOpen={showWorkflow} 
         onClose={() => setShowWorkflow(false)} 
       />
+
+      {installPopup && (
+        <div className="modal-overlay" onClick={() => setInstallPopup(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h2>Install {installPopup}</h2>
+            <p>Run this command:</p>
+            <code>ollama pull {installPopup}</code>
+            <button className="copy-btn" onClick={() => navigator.clipboard.writeText(`ollama pull ${installPopup}`)}>
+              Copy
+            </button>
+            <p className="hint">Refresh after installing.</p>
+            <button className="close-btn" onClick={() => setInstallPopup(null)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      <div className="footer">
+        Built with Ollama · localhost
+      </div>
     </div>
   )
 }
