@@ -1,5 +1,5 @@
 from typing import Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import threading
 import uuid
 
@@ -50,6 +50,7 @@ class SharedBoard:
         self.status = "running"
         self.lock = threading.Lock()
         self.conflicts: List[Dict[str, Any]] = []
+        self.created_at = datetime.now()
 
     def add_entry(self, entry: BoardEntry):
         with self.lock:
@@ -79,6 +80,7 @@ class SharedBoard:
 class SessionManager:
     _boards: Dict[str, SharedBoard] = {}
     _lock = threading.Lock()
+    _session_timeout = timedelta(hours=1)
 
     @classmethod
     def create_session(cls, problem: str) -> str:
@@ -97,3 +99,15 @@ class SessionManager:
     def close_session(cls, session_id: str):
         with cls._lock:
             cls._boards.pop(session_id, None)
+
+    @classmethod
+    def cleanup_old_sessions(cls):
+        with cls._lock:
+            now = datetime.now()
+            expired = [
+                sid
+                for sid, board in cls._boards.items()
+                if now - board.created_at > cls._session_timeout
+            ]
+            for sid in expired:
+                cls._boards.pop(sid, None)
