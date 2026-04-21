@@ -1,5 +1,7 @@
 # Agora
 
+> *Agora (Ancient Greek: ἀγορά) — "a central public space in ancient Greek city-states where citizens gathered to openly debate and discuss ideas."*
+> 
 > A place where minds meet. Multiple AI agents reason together — concurrently, reactively, and in real time.
 
 Agora is a locally-hosted multi-agent reasoning system where several AI models powered by Ollama work on the same problem simultaneously. They share a live workspace, react to each other's partial outputs mid-thought, and converge on answers through genuine back-and-forth — not a sequential pipeline.
@@ -12,11 +14,11 @@ Most "multi-agent" systems are just sequential pipelines. Agent A finishes, then
 
 Agora is built around a different model:
 
-- All agents start at the same time
-- Every agent can read from and react to a shared board as it updates live
-- No agent waits for another to finish — they respond to each other's **partial, in-progress thoughts**
-- Conflicts between agents are detected and surfaced explicitly — not auto-resolved and hidden
-- The entire reasoning flow is visualized as a live mindmap showing exactly what output fed what input
+- **Round-based Synchronization**: All active agents execute concurrently in `N=3` synchronized rounds, absorbing and responding to their peers dynamically.
+- **Identity & Lane Discipline**: Agents receive meta-prompts assigning strict roles (e.g. `FOR Figma`), forcing true conversational debate without hallucinating across sides.
+- No agent waits for another inside the same round — they respond to each other's prior turn's data inherently.
+- Conflicts between agents are detected and surfaced explicitly.
+- The entire reasoning flow is visualized as a live mindmap showing exactly what output fed what input.
 
 ---
 
@@ -36,8 +38,8 @@ On page load, Agora scans your Ollama installation and shows:
 - **Installed models** — ready to assign to agents immediately
 - **Available models** — recommended models not yet installed, with one-click install instructions
 
-### 📦 Per-Agent Model Selection
-Each agent slot has an independent dropdown. You can run `mistral` as Agent 1 and `llama3` as Agent 2 in the same session. You can also fall back to a cloud model (OpenRouter / OpenAI) for any individual agent slot by entering an API key — without affecting other agents.
+### 📦 Dynamic Free-Text Roles & API Overrides
+Each agent utilizes a native free-text input for assignment, meaning you can type dynamic, argumentative conditions like `Pro-React` or `Anti-Vite` in addition to strict personas (`Critic`, `Synthesizer`). Special evaluator roles (e.g., `Judge`) are sequestered and execute purely at the end of all debates. You can also fall back to a cloud model (OpenRouter / OpenAI) for any individual agent slot by entering an API key.
 
 ### 🗺️ Live Workflow Mindmap
 A dedicated Workflow view shows the entire reasoning session as a directed graph — updating in real time as the session progresses. Every agent post is a node. Every data handoff is a labeled edge showing what was passed. Click any node to expand the full output.
@@ -56,6 +58,16 @@ The UI follows Apple's design principles:
 - No unnecessary borders or chrome
 - Product-as-hero layout
 
+### 🎭 Theme Support
+Agora supports 5 themes to match your preference:
+- **Dark** (default) - Deep slate with indigo accents
+- **Light** - Clean white with subtle shadows
+- **Neomorphism Dark** - Soft 3D effect with dark muted colors
+- **Neomorphism Light** - Soft 3D effect with light colors
+- **Glassmorphism** - Frosted glass with deep blue gradient (Apple style)
+
+Click the Settings button (bottom right) to switch themes. Glassmorphism features transparent, blurred frosted buttons with backdrop blur effects.
+
 ---
 
 ## How It Works
@@ -64,19 +76,20 @@ The UI follows Apple's design principles:
 User submits a problem
         │
         ▼
-All agents start simultaneously
+   Turn 1 Starts (Simultaneous)
         │
    ┌────┴────┐
    │         │
-Agent 1   Agent 2   Agent 3  ...
-   │         │         │
-   └────┬────┘         │
-        │              │
-   Posts to        Reads board
-   shared board    reacts live
+Agent 1   Agent 2   ...
+   │         │
+   └────┬────┘
+        │
+    State Synced 
+        │
+    Turn 2 & 3 Processed similarly
         │
         ▼
-  Synthesizer monitors board
+  Synthesizer/Judge executes alone
   detects convergence or conflict
         │
         ▼
